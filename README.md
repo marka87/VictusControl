@@ -1,0 +1,126 @@
+# VictusControl ⚡
+
+> **Lightweight, bloat-free control utility for HP Victus laptops.**  
+> Direct HP BIOS WMI communication (`root\wmi`, `hpqBIntM`). Zero background services, zero ads, zero telemetry.
+
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue?logo=windows)](https://github.com/marka87/VictusControl)
+[![Language](https://img.shields.io/badge/Language-C%23%205.0%20%2F%20.NET%204.0+-purple)](https://github.com/marka87/VictusControl)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Binary Size](https://img.shields.io/badge/Size-~20%20KB-brightgreen)](https://github.com/marka87/VictusControl)
+
+---
+
+## 🌟 Why VictusControl?
+
+The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs multiple persistent background services, displays store ads, and drains laptop battery.
+
+**VictusControl** is designed as a standalone, featherlight alternative (<20 KB single executable) that talks directly to the HP BIOS WMI layer:
+
+| Feature | HP OMEN Gaming Hub | VictusControl |
+| :--- | :--- | :--- |
+| **Download / Install Size** | ~500 MB+ | **~20 KB** |
+| **RAM Usage** | 200 – 400 MB | **< 15 MB** |
+| **Background Services** | 4 – 6 services running 24/7 | **0 (Zero)** |
+| **Dedicated Omen Key** | Opens heavy Omen Hub | **Opens instant Quick Flyout (Bubble)** |
+| **Telemetry & Ads** | Yes | **None** |
+| **Dependencies** | UWP / Store / HSA Services | **None (Built into Windows)** |
+
+---
+
+## ✨ Features
+
+- 🎯 **Hardware "Omen" Key Support:**  
+  Intercepts the dedicated Omen key on your keyboard to instantly pop up the sleek Quick Control Flyout (Bubble).
+- 🌈 **1-Zone RGB Backlight Control:**  
+  Choose from 9 vibrant presets (*White, Red, Orange, Yellow, Green, Cyan, Blue, Purple, Pink*) or select any custom color via the native Windows color picker.
+- 🔆 **PWM Brightness & Dimming:**  
+  Hardware-safe 4-level dimming (*25%, 50%, 75%, 100%*).
+- 🌊 **Smooth Lighting Animations:**
+  - **Breathing (Atmung):** Gentle sine wave pulsation in your selected color.
+  - **Rainbow (Color Cycle):** Smooth HSV spectrum transition across all hues (~16 FPS, <0.1% CPU).
+- ⏳ **Smart Inactivity Timeout:**  
+  Turns off keyboard LEDs automatically when idle (*30s, 1m, 5m, 10m, or Disabled*) to save battery and reduce glare. Turns back on immediately upon key or mouse input.
+- ⚡ **Thermal & Performance Profiles:**  
+  - **Quiet (Eco):** Whisper-quiet fans and power saving.
+  - **Balanced:** Default daily operation.
+  - **Performance (Gaming):** Unlocked power limits and aggressive cooling.
+  - **Max Fan Toggle:** Force fans to 100% speed on demand.
+- 🛡️ **Safe for Windows:**  
+  Interacts strictly with the HP BIOS WMI interface (`hpqBIntM`) and native Windows power schemes. Does not tamper with or corrupt Windows registry power plans.
+- 💾 **Persistent Settings:**  
+  All your choices are saved automatically in `%APPDATA%\VictusControl\settings.txt` and restored upon startup, sleep resume, or session unlock.
+
+---
+
+## 🖥️ The Quick-Control Flyout ("Bubble")
+
+Press your laptop's **Omen key**, press **`Ctrl` + `Alt` + `V`**, or **left-click the tray icon** to summon the modern Quick Flyout:
+
+```
+┌──────────────────────────────────────────────┐
+│  Victus Control                 [● Licht AN] │
+├──────────────────────────────────────────────┤
+│  FARBE                                       │
+│  (●) (●) (●) (●) (●) (●) (●) (●) (●)   [ + ] │
+│  Ws  Rt  Or  Gb  Gn  Cy  Bl  Li  Pk   Custom │
+│                                              │
+│  HELLIGKEIT                                  │
+│  [  25 %  ]   [  50 %  ]   [  75 %  ] [ 100 %]│
+│                                              │
+│  EFFEKT                                      │
+│  [  Statisch  ]   [  Atmung  ]   [ Regenbogen]│
+│                                              │
+│  TIMEOUT (INAKTIVITÄT)                       │
+│  [ Aus ]   [ 30s ]   [ 1 min ]   [ 5 min ]   │
+│                                              │
+│  LEISTUNGSPROFIL                             │
+│  [  Leise (Eco)  ]  [ Ausgeglichen ]  [ Gaming]│
+│                                              │
+│  LÜFTERSTEUERUNG                             │
+│  [ Auto-Lüfter ]    [ Max Lüfter (100 %) ]   │
+└──────────────────────────────────────────────┘
+```
+
+> **Auto-Close:** Clicking anywhere outside the bubble or pressing `Escape` dismisses the window cleanly.
+
+---
+
+## 🚀 Installation & Building
+
+No Visual Studio, SDK, or package manager required! Windows includes the C# compiler out of the box.
+
+### Quick Setup:
+1. Clone or download this repository:
+   ```bash
+   git clone https://github.com/marka87/VictusControl.git
+   ```
+2. Run **`build.bat`** (Right-click → *Run as Administrator*).  
+   It will compile `VictusControl.exe` in under two seconds.
+3. To start automatically with Windows without UAC prompts:  
+   Run **`install-autostart.bat`** (Right-click → *Run as Administrator*).
+
+### Uninstall:
+Run **`uninstall-autostart.bat`** (Right-click → *Run as Administrator*) and delete the folder.
+
+---
+
+## 🔧 How It Works
+
+1. **WMI BIOS Communication:** Communicates with the `root\wmi` namespace using class `hpqBIntM` and method `hpqBIOSInt128` with command signature `"SECU"`.
+   - Command `0x20009`: Reads and writes RGB lighting byte buffers (bytes 25, 26, 27).
+   - Command `0x20008`: Controls thermal policies and fan speed triggers.
+2. **Omen Hardware Key:** Listens to `hpqBEvnt` in WMI as well as low-level keyboard scan events (`F24` / `LaunchApp1`).
+3. **Inactivity Detection:** Uses `GetLastInputInfo` in `user32.dll` to measure system-wide idle time without continuous polling overhead.
+
+---
+
+## 💻 Hardware Compatibility
+
+- **Tested on:** HP Victus 16 (`16-s0xxx` AMD series, `16-d/e/r` series with 1-Zone RGB keyboard).
+- **Compatible with:** HP Victus 15, HP Victus 16, and other HP laptops with 1-Zone RGB backlighting.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) - free to use, modify, and distribute.
