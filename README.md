@@ -34,7 +34,7 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
 - 🌈 **1-Zone RGB Backlight Control:**  
   Choose from 9 vibrant presets (*White, Red, Orange, Yellow, Green, Cyan, Blue, Purple, Pink*) or select any custom color via the native Windows color picker.
 - 🔆 **PWM Brightness & Dimming:**  
-  Hardware-safe 4-level dimming (*25%, 50%, 75%, 100%*).
+  Interactive **slider with 10% steps** (*10% to 100%*) plus quick-access preset buttons. Real-time preview as you drag.
 - 🌊 **Smooth Lighting Animations:**
   - **Breathing (Atmung):** Gentle sine wave pulsation in your selected color.
   - **Rainbow (Color Cycle):** Smooth HSV spectrum transition across all hues (~16 FPS, <0.1% CPU).
@@ -64,7 +64,8 @@ Press your laptop's **Omen key**, press **`Ctrl` + `Alt` + `V`**, or **left-clic
 │  (●) (●) (●) (●) (●) (●) (●) (●) (●)   [ + ] │
 │  Ws  Rt  Or  Gb  Gn  Cy  Bl  Li  Pk   Custom │
 │                                              │
-│  HELLIGKEIT                                  │
+│  HELLIGKEIT (10 % SCHRITTE)             80 % │
+│  [ ───────────────●────── ]                  │
 │  [  25 %  ]   [  50 %  ]   [  75 %  ] [ 100 %]│
 │                                              │
 │  EFFEKT                                      │
@@ -124,3 +125,4 @@ Run **`uninstall-autostart.bat`** (Right-click → *Run as Administrator*) and d
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE) - free to use, modify, and distribute.
+

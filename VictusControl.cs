@@ -227,6 +227,114 @@ class HotkeyWindow : NativeWindow, IDisposable
     }
 }
 
+class DarkSlider : Control
+{
+    int _value = 100;
+    bool _isDragging = false;
+
+    public int Value
+    {
+        get { return _value; }
+        set
+        {
+            int snapped = (int)Math.Round(Math.Max(10, Math.Min(100, value)) / 10.0) * 10;
+            if (_value != snapped)
+            {
+                _value = snapped;
+                Invalidate();
+                if (ValueChanged != null) ValueChanged(this, EventArgs.Empty);
+            }
+        }
+    }
+
+    public event EventHandler ValueChanged;
+
+    public DarkSlider()
+    {
+        DoubleBuffered = true;
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+        Cursor = Cursors.Hand;
+        Height = 22;
+    }
+
+    void UpdateFromMouse(int mouseX)
+    {
+        int pad = 10;
+        int trackWidth = Width - 2 * pad;
+        if (trackWidth <= 0) return;
+        double pct = (double)(mouseX - pad) / trackWidth;
+        pct = Math.Max(0.0, Math.Min(1.0, pct));
+        int val = (int)Math.Round((10.0 + pct * 90.0) / 10.0) * 10;
+        Value = val;
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Left)
+        {
+            _isDragging = true;
+            UpdateFromMouse(e.X);
+        }
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (_isDragging && e.Button == MouseButtons.Left)
+        {
+            UpdateFromMouse(e.X);
+        }
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        _isDragging = false;
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        int pad = 10;
+        int trackWidth = Width - 2 * pad;
+        int cy = Height / 2;
+
+        // Background Track
+        using (Pen pTrack = new Pen(Color.FromArgb(48, 48, 54), 4f))
+        {
+            pTrack.StartCap = LineCap.Round;
+            pTrack.EndCap = LineCap.Round;
+            e.Graphics.DrawLine(pTrack, pad, cy, pad + trackWidth, cy);
+        }
+
+        double pct = (_value - 10) / 90.0;
+        int thumbX = pad + (int)Math.Round(pct * trackWidth);
+
+        // Filled Active Track (Accent Blue)
+        if (thumbX > pad)
+        {
+            using (Pen pActive = new Pen(Color.FromArgb(0, 120, 215), 4f))
+            {
+                pActive.StartCap = LineCap.Round;
+                pActive.EndCap = LineCap.Round;
+                e.Graphics.DrawLine(pActive, pad, cy, thumbX, cy);
+            }
+        }
+
+        // Thumb Circle
+        int thumbRadius = 7;
+        using (Brush brThumb = new SolidBrush(Color.White))
+        {
+            e.Graphics.FillEllipse(brThumb, thumbX - thumbRadius, cy - thumbRadius, thumbRadius * 2, thumbRadius * 2);
+        }
+        using (Pen pThumb = new Pen(Color.FromArgb(0, 120, 215), 2f))
+        {
+            e.Graphics.DrawEllipse(pThumb, thumbX - thumbRadius, cy - thumbRadius, thumbRadius * 2, thumbRadius * 2);
+        }
+    }
+}
+
 class FlyoutForm : Form
 {
     readonly TrayApp _app;
@@ -234,12 +342,16 @@ class FlyoutForm : Form
     Button _btnPower;
     Button[] _colorBtns;
     Button _btnCustomColor;
+    Label _lblBrightVal;
+    DarkSlider _brightSlider;
     Button[] _brightBtns;
     Button[] _effectBtns;
     Button[] _timeoutBtns;
     Button[] _thermalBtns;
     Button _btnFanAuto;
     Button _btnFanMax;
+
+    static readonly int[] QuickBrightness = { 25, 50, 75, 100 };
 
     protected override CreateParams CreateParams
     {
@@ -262,7 +374,7 @@ class FlyoutForm : Form
         BackColor = Color.FromArgb(24, 24, 26);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9f);
-        Size = new Size(360, 485);
+        Size = new Size(360, 515);
 
         BuildUi();
     }
@@ -355,18 +467,44 @@ class FlyoutForm : Form
 
         y += 36;
 
-        // Section: HELLIGKEIT
-        Controls.Add(CreateHeaderLabel("HELLIGKEIT", 16, y));
-        y += 22;
-        int[] bLevels = TrayApp.BrightnessLevels;
-        _brightBtns = new Button[bLevels.Length];
-        int bw = 76;
-        for (int i = 0; i < bLevels.Length; i++)
+        // Section: HELLIGKEIT (Schieberegler in 10 % Schritten + Schnellwahltasten)
+        Controls.Add(CreateHeaderLabel("HELLIGKEIT (10 % SCHRITTE)", 16, y));
+
+        _lblBrightVal = new Label();
+        _lblBrightVal.Text = _app.CurrentBrightness + " %";
+        _lblBrightVal.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+        _lblBrightVal.ForeColor = Color.FromArgb(0, 150, 255);
+        _lblBrightVal.Location = new Point(280, y - 2);
+        _lblBrightVal.Size = new Size(64, 18);
+        _lblBrightVal.TextAlign = ContentAlignment.MiddleRight;
+        Controls.Add(_lblBrightVal);
+
+        y += 20;
+
+        _brightSlider = new DarkSlider();
+        _brightSlider.Location = new Point(16, y);
+        _brightSlider.Size = new Size(328, 22);
+        _brightSlider.Value = _app.CurrentBrightness;
+        _brightSlider.ValueChanged += delegate
         {
-            int lvl = bLevels[i];
-            Button b = CreatePillButton(lvl + " %", 16 + i * (bw + 8), y, bw, 26);
+            int val = _brightSlider.Value;
+            _lblBrightVal.Text = val + " %";
+            _app.SetBrightness(val);
+            RefreshQuickBrightBtns();
+        };
+        Controls.Add(_brightSlider);
+
+        y += 26;
+
+        _brightBtns = new Button[QuickBrightness.Length];
+        int bw = 76;
+        for (int i = 0; i < QuickBrightness.Length; i++)
+        {
+            int lvl = QuickBrightness[i];
+            Button b = CreatePillButton(lvl + " %", 16 + i * (bw + 8), y, bw, 24);
             b.Click += delegate
             {
+                _brightSlider.Value = lvl;
                 _app.SetBrightness(lvl);
                 RefreshState();
             };
@@ -374,7 +512,7 @@ class FlyoutForm : Form
             Controls.Add(b);
         }
 
-        y += 36;
+        y += 34;
 
         // Section: EFFEKT
         Controls.Add(CreateHeaderLabel("EFFEKT", 16, y));
@@ -495,6 +633,15 @@ class FlyoutForm : Form
         return b;
     }
 
+    void RefreshQuickBrightBtns()
+    {
+        for (int i = 0; i < QuickBrightness.Length; i++)
+        {
+            bool sel = (_app.CurrentBrightness == QuickBrightness[i]);
+            StyleTogglePill(_brightBtns[i], sel);
+        }
+    }
+
     public void RefreshState()
     {
         // Power Button
@@ -514,13 +661,13 @@ class FlyoutForm : Form
         // Color circles refresh
         foreach (Button b in _colorBtns) b.Invalidate();
 
-        // Brightness Buttons
-        int[] bLevels = TrayApp.BrightnessLevels;
-        for (int i = 0; i < bLevels.Length; i++)
+        // Brightness Slider & Value Label
+        if (_brightSlider != null)
         {
-            bool sel = (_app.CurrentBrightness == bLevels[i]);
-            StyleTogglePill(_brightBtns[i], sel);
+            _brightSlider.Value = _app.CurrentBrightness;
+            if (_lblBrightVal != null) _lblBrightVal.Text = _app.CurrentBrightness + " %";
         }
+        RefreshQuickBrightBtns();
 
         // Effect Buttons
         EffectMode[] effModes = { EffectMode.Static, EffectMode.Breathing, EffectMode.Rainbow };
@@ -688,7 +835,7 @@ class TrayApp : ApplicationContext
     ToolStripMenuItem maxFanItem;
     ToolStripMenuItem powerItem;
 
-    public static readonly int[] BrightnessLevels = { 25, 50, 75, 100 };
+    public static readonly int[] BrightnessLevels = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
     public static readonly int[] TimeoutSecondsList = { 0, 30, 60, 120, 300, 600 };
     public static readonly string[] TimeoutLabels = { "Nie (Deaktiviert)", "30 Sekunden", "1 Minute", "2 Minuten", "5 Minuten", "10 Minuten" };
 
@@ -856,7 +1003,7 @@ class TrayApp : ApplicationContext
         effectMenu.DropDownItems.Add(effectRainbowItem);
         menu.Items.Add(effectMenu);
 
-        // Helligkeit
+        // Helligkeit (10 % bis 100 %)
         ToolStripMenuItem brightMenu = new ToolStripMenuItem("Helligkeit");
         brightnessItems = new ToolStripMenuItem[BrightnessLevels.Length];
         for (int i = 0; i < BrightnessLevels.Length; i++)
