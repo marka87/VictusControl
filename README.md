@@ -56,31 +56,9 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
 
 Press your laptop's **Omen key**, press **`Ctrl` + `Alt` + `V`**, or **left-click the tray icon** to summon the modern Quick Flyout:
 
-```
-┌──────────────────────────────────────────────┐
-│  Victus Control                 [● Licht AN] │
-├──────────────────────────────────────────────┤
-│  FARBE                                       │
-│  (●) (●) (●) (●) (●) (●) (●) (●) (●)   [ + ] │
-│  Ws  Rt  Or  Gb  Gn  Cy  Bl  Li  Pk   Custom │
-│                                              │
-│  HELLIGKEIT (10 % SCHRITTE)             80 % │
-│  [ ───────────────●────── ]                  │
-│  [  25 %  ]   [  50 %  ]   [  75 %  ] [ 100 %]│
-│                                              │
-│  EFFEKT                                      │
-│  [  Statisch  ]   [  Atmung  ]   [ Regenbogen]│
-│                                              │
-│  TIMEOUT (INAKTIVITÄT)                       │
-│  [ Aus ]   [ 30s ]   [ 1 min ]   [ 5 min ]   │
-│                                              │
-│  LEISTUNGSPROFIL                             │
-│  [  Leise (Eco)  ]  [ Ausgeglichen ]  [ Gaming]│
-│                                              │
-│  LÜFTERSTEUERUNG                             │
-│  [ Auto-Lüfter ]    [ Max Lüfter (100 %) ]   │
-└──────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="screenshot.png" alt="VictusControl Quick Flyout" width="360" />
+</p>
 
 > **Auto-Close:** Clicking anywhere outside the bubble or pressing `Escape` dismisses the window cleanly.
 

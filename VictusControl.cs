@@ -392,7 +392,7 @@ class FlyoutForm : Form
         lblTitle.AutoSize = true;
         Controls.Add(lblTitle);
 
-        _btnPower = CreatePillButton("● Licht AN", 240, y - 2, 104, 28);
+        _btnPower = CreatePillButton("● Light ON", 236, y - 2, 108, 28);
         _btnPower.Click += delegate
         {
             _app.TogglePower();
@@ -404,8 +404,8 @@ class FlyoutForm : Form
         Controls.Add(CreateSeparator(16, y, 328));
         y += 10;
 
-        // Section: FARBE
-        Controls.Add(CreateHeaderLabel("FARBE", 16, y));
+        // Section: COLOR
+        Controls.Add(CreateHeaderLabel("COLOR", 16, y));
         y += 22;
 
         int cx = 16;
@@ -467,8 +467,8 @@ class FlyoutForm : Form
 
         y += 36;
 
-        // Section: HELLIGKEIT (Schieberegler in 10 % Schritten + Schnellwahltasten)
-        Controls.Add(CreateHeaderLabel("HELLIGKEIT (10 % SCHRITTE)", 16, y));
+        // Section: BRIGHTNESS (Slider with 10% steps + quick buttons)
+        Controls.Add(CreateHeaderLabel("BRIGHTNESS (10% STEPS)", 16, y));
 
         _lblBrightVal = new Label();
         _lblBrightVal.Text = _app.CurrentBrightness + " %";
@@ -514,10 +514,10 @@ class FlyoutForm : Form
 
         y += 34;
 
-        // Section: EFFEKT
-        Controls.Add(CreateHeaderLabel("EFFEKT", 16, y));
+        // Section: EFFECT
+        Controls.Add(CreateHeaderLabel("EFFECT", 16, y));
         y += 22;
-        string[] effNames = { "Statisch", "Atmung", "Regenbogen" };
+        string[] effNames = { "Static", "Breathing", "Rainbow" };
         EffectMode[] effModes = { EffectMode.Static, EffectMode.Breathing, EffectMode.Rainbow };
         _effectBtns = new Button[effNames.Length];
         int ew = 104;
@@ -536,11 +536,11 @@ class FlyoutForm : Form
 
         y += 36;
 
-        // Section: TIMEOUT
-        Controls.Add(CreateHeaderLabel("TIMEOUT (INAKTIVITÄT)", 16, y));
+        // Section: TIMEOUT (IDLE)
+        Controls.Add(CreateHeaderLabel("TIMEOUT (IDLE)", 16, y));
         y += 22;
         int[] toSecs = { 0, 30, 60, 300, 600 };
-        string[] toLabels = { "Aus", "30s", "1m", "5m", "10m" };
+        string[] toLabels = { "Off", "30s", "1m", "5m", "10m" };
         _timeoutBtns = new Button[toSecs.Length];
         int tw = 58;
         for (int i = 0; i < toSecs.Length; i++)
@@ -558,10 +558,10 @@ class FlyoutForm : Form
 
         y += 36;
 
-        // Section: LEISTUNGSPROFIL
-        Controls.Add(CreateHeaderLabel("LEISTUNGSPROFIL", 16, y));
+        // Section: PERFORMANCE PROFILE
+        Controls.Add(CreateHeaderLabel("PERFORMANCE PROFILE", 16, y));
         y += 22;
-        string[] thNames = { "Leise (Eco)", "Ausgeglichen", "Leistung" };
+        string[] thNames = { "Quiet (Eco)", "Balanced", "Performance" };
         ThermalProfile[] thModes = { ThermalProfile.Quiet, ThermalProfile.Balanced, ThermalProfile.Performance };
         _thermalBtns = new Button[thNames.Length];
         int pw = 104;
@@ -580,10 +580,10 @@ class FlyoutForm : Form
 
         y += 36;
 
-        // Section: LÜFTER
-        Controls.Add(CreateHeaderLabel("LÜFTERSTEUERUNG", 16, y));
+        // Section: FAN CONTROL
+        Controls.Add(CreateHeaderLabel("FAN CONTROL", 16, y));
         y += 22;
-        _btnFanAuto = CreatePillButton("Auto-Lüfter", 16, y, 160, 26);
+        _btnFanAuto = CreatePillButton("Auto Fan", 16, y, 160, 26);
         _btnFanAuto.Click += delegate
         {
             _app.SetMaxFan(false);
@@ -591,7 +591,7 @@ class FlyoutForm : Form
         };
         Controls.Add(_btnFanAuto);
 
-        _btnFanMax = CreatePillButton("Max Lüfter (100 %)", 184, y, 160, 26);
+        _btnFanMax = CreatePillButton("Max Fan (100%)", 184, y, 160, 26);
         _btnFanMax.Click += delegate
         {
             _app.SetMaxFan(true);
@@ -647,13 +647,13 @@ class FlyoutForm : Form
         // Power Button
         if (_app.CurrentPowerOn)
         {
-            _btnPower.Text = "● Licht AN";
+            _btnPower.Text = "● Light ON";
             _btnPower.BackColor = Color.FromArgb(32, 110, 56);
             _btnPower.ForeColor = Color.White;
         }
         else
         {
-            _btnPower.Text = "○ Licht AUS";
+            _btnPower.Text = "○ Light OFF";
             _btnPower.BackColor = Color.FromArgb(60, 60, 65);
             _btnPower.ForeColor = Color.FromArgb(200, 100, 100);
         }
@@ -818,7 +818,7 @@ class TrayApp : ApplicationContext
     IntPtr hookId = IntPtr.Zero;
     HookProc hookProc;
 
-    public static readonly string[] Names = { "Weiss", "Rot", "Orange", "Gelb", "Gruen", "Cyan", "Blau", "Lila", "Pink" };
+    public static readonly string[] Names = { "White", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Pink" };
     public static readonly Color[] PresetColors = {
         Color.FromArgb(255,255,255), Color.FromArgb(255,0,0), Color.FromArgb(255,100,0),
         Color.FromArgb(255,220,0), Color.FromArgb(0,255,0), Color.FromArgb(0,255,255),
@@ -837,7 +837,7 @@ class TrayApp : ApplicationContext
 
     public static readonly int[] BrightnessLevels = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
     public static readonly int[] TimeoutSecondsList = { 0, 30, 60, 120, 300, 600 };
-    public static readonly string[] TimeoutLabels = { "Nie (Deaktiviert)", "30 Sekunden", "1 Minute", "2 Minuten", "5 Minuten", "10 Minuten" };
+    public static readonly string[] TimeoutLabels = { "Disabled (Never)", "30 Seconds", "1 Minute", "2 Minutes", "5 Minutes", "10 Minutes" };
 
     public TrayApp()
     {
@@ -854,11 +854,11 @@ class TrayApp : ApplicationContext
 
         ContextMenuStrip menu = CreateMenu();
         tray.ContextMenuStrip = menu;
-        tray.Text = "Victus Control (Omen-Taste oder Klick)";
+        tray.Text = "Victus Control (Omen Key or Click)";
         UpdateTrayIcon();
         tray.Visible = true;
 
-        // Linksklick auf Tray öffnet Flyout Bubble
+        // Left click on tray toggles Flyout
         tray.MouseClick += delegate(object s, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
@@ -870,10 +870,10 @@ class TrayApp : ApplicationContext
         // Hotkey Ctrl + Alt + V
         try { hotkeyWin = new HotkeyWindow(delegate { ToggleFlyout(); }); } catch { }
 
-        // WMI Event Watcher fuer Omen-Taste (hpqBEvnt)
+        // WMI Event Watcher for Omen Key (hpqBEvnt)
         SetupWmiOmenWatcher();
 
-        // Low-Level Keyboard Hook fuer Omen-Taste / F24 / AppLaunch
+        // Low-Level Keyboard Hook for Omen Key / F24 / AppLaunch
         SetupKeyboardHook();
 
         SystemEvents.PowerModeChanged += delegate(object s, PowerModeChangedEventArgs e)
@@ -896,7 +896,7 @@ class TrayApp : ApplicationContext
             }
         };
 
-        // Profile beim Start initialisieren
+        // Initialize profiles
         Hp.SetThermalProfile(currentThermal);
         Hp.SetMaxFan(currentMaxFan);
         WindowsPower.ApplyScheme(currentThermal);
@@ -946,7 +946,7 @@ class TrayApp : ApplicationContext
             if (vkCode == 0x87 || vkCode == 0xB4 || vkCode == 0xB5)
             {
                 ui.BeginInvoke((MethodInvoker)delegate { ToggleFlyout(); });
-                return (IntPtr)1; // Event abfangen
+                return (IntPtr)1; // Consume event
             }
         }
         return CallNextHookEx(hookId, nCode, wParam, lParam);
@@ -962,7 +962,7 @@ class TrayApp : ApplicationContext
         ContextMenuStrip menu = new ContextMenuStrip();
         menu.Opening += delegate { UpdateMenuChecks(); };
 
-        ToolStripMenuItem quickItem = new ToolStripMenuItem("Schnellsteuerung (Omen-Taste)...");
+        ToolStripMenuItem quickItem = new ToolStripMenuItem("Quick Control (Omen Key)...");
         quickItem.Font = new Font(menu.Font, FontStyle.Bold);
         quickItem.Click += delegate { ToggleFlyout(); };
         menu.Items.Add(quickItem);
@@ -979,7 +979,7 @@ class TrayApp : ApplicationContext
             menu.Items.Add(item);
         }
 
-        ToolStripMenuItem custom = new ToolStripMenuItem("Eigene Farbe...");
+        ToolStripMenuItem custom = new ToolStripMenuItem("Custom Color...");
         custom.Click += delegate
         {
             using (ColorDialog dlg = new ColorDialog())
@@ -993,18 +993,18 @@ class TrayApp : ApplicationContext
 
         menu.Items.Add(new ToolStripSeparator());
 
-        // Effekt
-        ToolStripMenuItem effectMenu = new ToolStripMenuItem("Effekt");
-        effectStaticItem = new ToolStripMenuItem("Statisch", null, delegate { SetEffect(EffectMode.Static); });
-        effectBreatheItem = new ToolStripMenuItem("Atmung (Breathing)", null, delegate { SetEffect(EffectMode.Breathing); });
-        effectRainbowItem = new ToolStripMenuItem("Farbwechsel (Regenbogen)", null, delegate { SetEffect(EffectMode.Rainbow); });
+        // Effect
+        ToolStripMenuItem effectMenu = new ToolStripMenuItem("Effect");
+        effectStaticItem = new ToolStripMenuItem("Static", null, delegate { SetEffect(EffectMode.Static); });
+        effectBreatheItem = new ToolStripMenuItem("Breathing", null, delegate { SetEffect(EffectMode.Breathing); });
+        effectRainbowItem = new ToolStripMenuItem("Rainbow", null, delegate { SetEffect(EffectMode.Rainbow); });
         effectMenu.DropDownItems.Add(effectStaticItem);
         effectMenu.DropDownItems.Add(effectBreatheItem);
         effectMenu.DropDownItems.Add(effectRainbowItem);
         menu.Items.Add(effectMenu);
 
-        // Helligkeit (10 % bis 100 %)
-        ToolStripMenuItem brightMenu = new ToolStripMenuItem("Helligkeit");
+        // Brightness (10% to 100%)
+        ToolStripMenuItem brightMenu = new ToolStripMenuItem("Brightness");
         brightnessItems = new ToolStripMenuItem[BrightnessLevels.Length];
         for (int i = 0; i < BrightnessLevels.Length; i++)
         {
@@ -1017,7 +1017,7 @@ class TrayApp : ApplicationContext
         menu.Items.Add(brightMenu);
 
         // Timeout
-        ToolStripMenuItem timeoutMenu = new ToolStripMenuItem("Timeout (Inaktivität)");
+        ToolStripMenuItem timeoutMenu = new ToolStripMenuItem("Timeout (Idle)");
         timeoutItems = new ToolStripMenuItem[TimeoutSecondsList.Length];
         for (int i = 0; i < TimeoutSecondsList.Length; i++)
         {
@@ -1029,9 +1029,9 @@ class TrayApp : ApplicationContext
         }
         menu.Items.Add(timeoutMenu);
 
-        // Leistungsprofil
-        ToolStripMenuItem thermalMenu = new ToolStripMenuItem("Leistungsprofil");
-        string[] thNames = { "Leise (Eco)", "Ausgeglichen", "Leistung (Gaming)" };
+        // Performance Profile
+        ToolStripMenuItem thermalMenu = new ToolStripMenuItem("Performance Profile");
+        string[] thNames = { "Quiet (Eco)", "Balanced", "Performance (Gaming)" };
         ThermalProfile[] thModes = { ThermalProfile.Quiet, ThermalProfile.Balanced, ThermalProfile.Performance };
         thermalItems = new ToolStripMenuItem[thNames.Length];
         for (int i = 0; i < thNames.Length; i++)
@@ -1045,19 +1045,19 @@ class TrayApp : ApplicationContext
         menu.Items.Add(thermalMenu);
 
         // Max Fan
-        maxFanItem = new ToolStripMenuItem("Max Lüfter (100 %)");
+        maxFanItem = new ToolStripMenuItem("Max Fan (100%)");
         maxFanItem.Click += delegate { SetMaxFan(!currentMaxFan); };
         menu.Items.Add(maxFanItem);
 
         menu.Items.Add(new ToolStripSeparator());
 
-        powerItem = new ToolStripMenuItem("Licht an");
+        powerItem = new ToolStripMenuItem("Light on");
         powerItem.Click += delegate { TogglePower(); };
         menu.Items.Add(powerItem);
 
         menu.Items.Add(new ToolStripSeparator());
 
-        ToolStripMenuItem exit = new ToolStripMenuItem("Beenden");
+        ToolStripMenuItem exit = new ToolStripMenuItem("Exit");
         exit.Click += delegate
         {
             isExiting = true;
