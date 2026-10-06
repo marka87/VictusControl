@@ -188,6 +188,154 @@ static class WindowsPower
     }
 }
 
+static class DisplayHelper
+{
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+    public struct PHYSICAL_MONITOR
+    {
+        public IntPtr hPhysicalMonitor;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szPhysicalMonitorDescription;
+    }
+
+    public delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int left, top, right, bottom; }
+
+    [DllImport("user32.dll")]
+    public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, MonitorEnumProc lpfnEnum, IntPtr dwData);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool GetNumberOfPhysicalMonitorsFromHMONITOR(IntPtr hMonitor, out uint pdwNumberOfPhysicalMonitors);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool GetPhysicalMonitorsFromHMONITOR(IntPtr hMonitor, uint dwPhysicalMonitorArraySize, [Out] PHYSICAL_MONITOR[] pPhysicalMonitorArray);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool DestroyPhysicalMonitors(uint dwPhysicalMonitorArraySize, PHYSICAL_MONITOR[] pPhysicalMonitorArray);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool SetMonitorBrightness(IntPtr hMonitor, uint dwNewBrightness);
+
+    [DllImport("dxva2.dll", SetLastError = true)]
+    public static extern bool SetVCPFeature(IntPtr hMonitor, byte bVCPCode, uint dwNewValue);
+
+    static DimmerOverlay _overlay;
+
+    public static bool SetExternalBrightness(int brightnessPercent, out string modeUsed)
+    {
+        bool ddcWorked = false;
+        try
+        {
+            EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, delegate(IntPtr hMon, IntPtr hdc, ref RECT rc, IntPtr data)
+            {
+                uint count = 0;
+                if (GetNumberOfPhysicalMonitorsFromHMONITOR(hMon, out count) && count > 0)
+                {
+                    PHYSICAL_MONITOR[] arr = new PHYSICAL_MONITOR[count];
+                    if (GetPhysicalMonitorsFromHMONITOR(hMon, count, arr))
+                    {
+                        for (int i = 0; i < arr.Length; i++)
+                        {
+                            IntPtr hPhys = arr[i].hPhysicalMonitor;
+                            if (SetMonitorBrightness(hPhys, (uint)brightnessPercent))
+                            {
+                                ddcWorked = true;
+                            }
+                            else if (SetVCPFeature(hPhys, 0x10, (uint)brightnessPercent))
+                            {
+                                ddcWorked = true;
+                            }
+                        }
+                        DestroyPhysicalMonitors(count, arr);
+                    }
+                }
+                return true;
+            }, IntPtr.Zero);
+        }
+        catch { }
+
+        if (ddcWorked)
+        {
+            if (_overlay != null && _overlay.Visible) _overlay.Hide();
+            modeUsed = "Hardware (DDC/CI)";
+            return true;
+        }
+
+        // Fallback: Click-through software dimmer overlay
+        ApplySoftwareDimmer(brightnessPercent);
+        modeUsed = "Software Dimmer (DDC/CI not responding)";
+        return false;
+    }
+
+    static void ApplySoftwareDimmer(int brightnessPercent)
+    {
+        Screen extScreen = null;
+        foreach (Screen s in Screen.AllScreens)
+        {
+            if (!s.Primary) { extScreen = s; break; }
+        }
+
+        if (extScreen == null)
+        {
+            if (_overlay != null && _overlay.Visible) _overlay.Hide();
+            return;
+        }
+
+        if (brightnessPercent >= 100)
+        {
+            if (_overlay != null && _overlay.Visible) _overlay.Hide();
+            return;
+        }
+
+        if (_overlay == null || _overlay.IsDisposed)
+        {
+            _overlay = new DimmerOverlay();
+        }
+
+        _overlay.Bounds = extScreen.Bounds;
+        double opacity = ((100.0 - brightnessPercent) / 90.0) * 0.82;
+        _overlay.Opacity = Math.Max(0.04, Math.Min(0.85, opacity));
+        if (!_overlay.Visible)
+        {
+            _overlay.Show();
+        }
+    }
+}
+
+class DimmerOverlay : Form
+{
+    const int WS_EX_LAYERED = 0x80000;
+    const int WS_EX_TRANSPARENT = 0x20;
+    const int WS_EX_TOOLWINDOW = 0x80;
+    const int WS_EX_NOACTIVATE = 0x08000000;
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            CreateParams cp = base.CreateParams;
+            cp.ExStyle |= WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE;
+            return cp;
+        }
+    }
+
+    public DimmerOverlay()
+    {
+        FormBorderStyle = FormBorderStyle.None;
+        StartPosition = FormStartPosition.Manual;
+        ShowInTaskbar = false;
+        TopMost = true;
+        BackColor = Color.Black;
+    }
+
+    protected override bool ShowWithoutActivation
+    {
+        get { return true; }
+    }
+}
+
 class HotkeyWindow : NativeWindow, IDisposable
 {
     [DllImport("user32.dll")]
@@ -351,6 +499,10 @@ class FlyoutForm : Form
     Button _btnFanAuto;
     Button _btnFanMax;
 
+    Label _lblExtBrightVal;
+    DarkSlider _extBrightSlider;
+    Label _lblExtStatus;
+
     static readonly int[] QuickBrightness = { 25, 50, 75, 100 };
 
     protected override CreateParams CreateParams
@@ -374,7 +526,7 @@ class FlyoutForm : Form
         BackColor = Color.FromArgb(24, 24, 26);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9f);
-        Size = new Size(360, 515);
+        Size = new Size(360, 580);
 
         BuildUi();
     }
@@ -467,8 +619,8 @@ class FlyoutForm : Form
 
         y += 36;
 
-        // Section: BRIGHTNESS (Slider with 10% steps + quick buttons)
-        Controls.Add(CreateHeaderLabel("BRIGHTNESS (10% STEPS)", 16, y));
+        // Section: KEYBOARD BRIGHTNESS
+        Controls.Add(CreateHeaderLabel("KEYBOARD BRIGHTNESS (10% STEPS)", 16, y));
 
         _lblBrightVal = new Label();
         _lblBrightVal.Text = _app.CurrentBrightness + " %";
@@ -598,6 +750,49 @@ class FlyoutForm : Form
             RefreshState();
         };
         Controls.Add(_btnFanMax);
+
+        y += 36;
+        Controls.Add(CreateSeparator(16, y, 328));
+        y += 10;
+
+        // Section: EXTERNAL DISPLAY (TEST)
+        Controls.Add(CreateHeaderLabel("EXTERNAL DISPLAY (HDMI / TYPE-C)", 16, y));
+
+        _lblExtBrightVal = new Label();
+        _lblExtBrightVal.Text = _app.CurrentExtDisplayBrightness + " %";
+        _lblExtBrightVal.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+        _lblExtBrightVal.ForeColor = Color.FromArgb(0, 210, 140);
+        _lblExtBrightVal.Location = new Point(280, y - 2);
+        _lblExtBrightVal.Size = new Size(64, 18);
+        _lblExtBrightVal.TextAlign = ContentAlignment.MiddleRight;
+        Controls.Add(_lblExtBrightVal);
+
+        y += 20;
+
+        _extBrightSlider = new DarkSlider();
+        _extBrightSlider.Location = new Point(16, y);
+        _extBrightSlider.Size = new Size(328, 22);
+        _extBrightSlider.Value = _app.CurrentExtDisplayBrightness;
+        _extBrightSlider.ValueChanged += delegate
+        {
+            int val = _extBrightSlider.Value;
+            _lblExtBrightVal.Text = val + " %";
+            string mode;
+            DisplayHelper.SetExternalBrightness(val, out mode);
+            _app.SetExtDisplayBrightness(val);
+            if (_lblExtStatus != null) _lblExtStatus.Text = "Mode: " + mode;
+        };
+        Controls.Add(_extBrightSlider);
+
+        y += 24;
+
+        _lblExtStatus = new Label();
+        _lblExtStatus.Text = "Mode: Auto (DDC/CI or Overlay)";
+        _lblExtStatus.Font = new Font("Segoe UI", 7.5f);
+        _lblExtStatus.ForeColor = Color.FromArgb(120, 120, 130);
+        _lblExtStatus.Location = new Point(16, y);
+        _lblExtStatus.Size = new Size(328, 16);
+        Controls.Add(_lblExtStatus);
     }
 
     Label CreateHeaderLabel(string text, int x, int y)
@@ -661,13 +856,20 @@ class FlyoutForm : Form
         // Color circles refresh
         foreach (Button b in _colorBtns) b.Invalidate();
 
-        // Brightness Slider & Value Label
+        // Keyboard Brightness Slider & Value Label
         if (_brightSlider != null)
         {
             _brightSlider.Value = _app.CurrentBrightness;
             if (_lblBrightVal != null) _lblBrightVal.Text = _app.CurrentBrightness + " %";
         }
         RefreshQuickBrightBtns();
+
+        // External Display Slider
+        if (_extBrightSlider != null)
+        {
+            _extBrightSlider.Value = _app.CurrentExtDisplayBrightness;
+            if (_lblExtBrightVal != null) _lblExtBrightVal.Text = _app.CurrentExtDisplayBrightness + " %";
+        }
 
         // Effect Buttons
         EffectMode[] effModes = { EffectMode.Static, EffectMode.Breathing, EffectMode.Rainbow };
@@ -799,6 +1001,7 @@ class TrayApp : ApplicationContext
     bool currentPowerOn = true;
     ThermalProfile currentThermal = ThermalProfile.Balanced;
     bool currentMaxFan = false;
+    int currentExtDisplayBrightness = 100;
 
     public Color CurrentColor { get { return currentColor; } }
     public int CurrentBrightness { get { return currentBrightness; } }
@@ -807,6 +1010,7 @@ class TrayApp : ApplicationContext
     public bool CurrentPowerOn { get { return currentPowerOn; } }
     public ThermalProfile CurrentThermal { get { return currentThermal; } }
     public bool CurrentMaxFan { get { return currentMaxFan; } }
+    public int CurrentExtDisplayBrightness { get { return currentExtDisplayBrightness; } }
 
     volatile bool isExiting = false;
     volatile bool forceUpdate = true;
@@ -1130,6 +1334,12 @@ class TrayApp : ApplicationContext
         SaveSettings();
     }
 
+    public void SetExtDisplayBrightness(int b)
+    {
+        currentExtDisplayBrightness = b;
+        SaveSettings();
+    }
+
     public void SetTimeout(int sec)
     {
         currentTimeoutSec = sec;
@@ -1346,6 +1556,11 @@ class TrayApp : ApplicationContext
                         bool mf;
                         if (bool.TryParse(val, out mf)) currentMaxFan = mf;
                     }
+                    else if (key == "extbright")
+                    {
+                        int eb;
+                        if (int.TryParse(val, out eb)) currentExtDisplayBrightness = eb;
+                    }
                 }
             }
         }
@@ -1357,14 +1572,15 @@ class TrayApp : ApplicationContext
         try
         {
             string content = string.Format(
-                "color={0},{1},{2}\r\nbrightness={3}\r\ntimeout={4}\r\neffect={5}\r\npower={6}\r\nthermal={7}\r\nmaxfan={8}\r\n",
+                "color={0},{1},{2}\r\nbrightness={3}\r\ntimeout={4}\r\neffect={5}\r\npower={6}\r\nthermal={7}\r\nmaxfan={8}\r\nextbright={9}\r\n",
                 currentColor.R, currentColor.G, currentColor.B,
                 currentBrightness,
                 currentTimeoutSec,
                 (int)currentEffect,
                 currentPowerOn,
                 (int)currentThermal,
-                currentMaxFan
+                currentMaxFan,
+                currentExtDisplayBrightness
             );
             File.WriteAllText(cfgPath, content);
         }

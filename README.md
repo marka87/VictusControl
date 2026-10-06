@@ -47,6 +47,8 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
   - **Max Fan Toggle:** Force fans to 100% speed on demand.
 - 🛡️ **Safe for Windows:**  
   Interacts strictly with the HP BIOS WMI interface (`hpqBIntM`) and native Windows power schemes. Does not tamper with or corrupt Windows registry power plans.
+- 🖥️ **External Display Brightness (HDMI / Type-C):**  
+  Adjust external monitor brightness directly from the flyout. Supports hardware **DDC/CI** with an automatic click-through software dimming overlay fallback (works through USB-C hubs & docks).
 - 💾 **Persistent Settings:**  
   All your choices are saved automatically in `%APPDATA%\VictusControl\settings.txt` and restored upon startup, sleep resume, or session unlock.
 
