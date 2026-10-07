@@ -19,13 +19,6 @@ enum EffectMode
     Rainbow = 2
 }
 
-enum ThermalProfile
-{
-    Quiet = 0,
-    Balanced = 1,
-    Performance = 2
-}
-
 static class Hp
 {
     const string Ns = @"root\wmi";
@@ -124,67 +117,6 @@ static class Hp
             }
             return "WMI error";
         }
-    }
-
-    public static void SetThermalProfile(ThermalProfile profile)
-    {
-        lock (Sync)
-        {
-            try
-            {
-                byte mode;
-                switch (profile)
-                {
-                    case ThermalProfile.Quiet: mode = 2; break;
-                    case ThermalProfile.Performance: mode = 1; break;
-                    default: mode = 0; break;
-                }
-                byte[] data = new byte[128];
-                data[0] = mode;
-                InvokeInternal(0x20008, 0x1A, data); // 0x1A = HPWMI_SET_PERFORMANCE_MODE
-            }
-            catch { }
-        }
-    }
-
-    public static void SetMaxFan(bool enabled)
-    {
-        lock (Sync)
-        {
-            try
-            {
-                byte[] data = new byte[128];
-                data[0] = (byte)(enabled ? 1 : 0);
-                InvokeInternal(0x20008, 0x27, data); // 0x27 = HPWMI_FAN_SPEED_MAX_SET_QUERY (0=Auto, 1=Max)
-            }
-            catch { }
-        }
-    }
-}
-
-static class WindowsPower
-{
-    [DllImport("PowrProf.dll")]
-    static extern uint PowerSetActiveScheme(IntPtr UserRootPowerKey, ref Guid SchemeGuid);
-
-    static readonly Guid GuidBalanced = new Guid("381b4222-f694-41f0-9685-ff5bb260df2e");
-    static readonly Guid GuidHighPerf = new Guid("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
-    static readonly Guid GuidPowerSaver = new Guid("a1841308-3541-4fab-bc81-f71556f20b4a");
-
-    public static void ApplyScheme(ThermalProfile profile)
-    {
-        try
-        {
-            Guid target;
-            switch (profile)
-            {
-                case ThermalProfile.Quiet: target = GuidPowerSaver; break;
-                case ThermalProfile.Performance: target = GuidHighPerf; break;
-                default: target = GuidBalanced; break;
-            }
-            PowerSetActiveScheme(IntPtr.Zero, ref target);
-        }
-        catch { }
     }
 }
 
@@ -495,9 +427,6 @@ class FlyoutForm : Form
     Button[] _brightBtns;
     Button[] _effectBtns;
     Button[] _timeoutBtns;
-    Button[] _thermalBtns;
-    Button _btnFanAuto;
-    Button _btnFanMax;
 
     Label _lblExtBrightVal;
     DarkSlider _extBrightSlider;
@@ -526,7 +455,7 @@ class FlyoutForm : Form
         BackColor = Color.FromArgb(24, 24, 26);
         ForeColor = Color.White;
         Font = new Font("Segoe UI", 9f);
-        Size = new Size(360, 580);
+        Size = new Size(360, 470);
 
         BuildUi();
     }
@@ -709,49 +638,6 @@ class FlyoutForm : Form
         }
 
         y += 36;
-
-        // Section: PERFORMANCE PROFILE
-        Controls.Add(CreateHeaderLabel("PERFORMANCE PROFILE", 16, y));
-        y += 22;
-        string[] thNames = { "Quiet (Eco)", "Balanced", "Performance" };
-        ThermalProfile[] thModes = { ThermalProfile.Quiet, ThermalProfile.Balanced, ThermalProfile.Performance };
-        _thermalBtns = new Button[thNames.Length];
-        int pw = 104;
-        for (int i = 0; i < thNames.Length; i++)
-        {
-            ThermalProfile tp = thModes[i];
-            Button b = CreatePillButton(thNames[i], 16 + i * (pw + 8), y, pw, 26);
-            b.Click += delegate
-            {
-                _app.SetThermalProfile(tp);
-                RefreshState();
-            };
-            _thermalBtns[i] = b;
-            Controls.Add(b);
-        }
-
-        y += 36;
-
-        // Section: FAN CONTROL
-        Controls.Add(CreateHeaderLabel("FAN CONTROL", 16, y));
-        y += 22;
-        _btnFanAuto = CreatePillButton("Auto Fan", 16, y, 160, 26);
-        _btnFanAuto.Click += delegate
-        {
-            _app.SetMaxFan(false);
-            RefreshState();
-        };
-        Controls.Add(_btnFanAuto);
-
-        _btnFanMax = CreatePillButton("Max Fan (100%)", 184, y, 160, 26);
-        _btnFanMax.Click += delegate
-        {
-            _app.SetMaxFan(true);
-            RefreshState();
-        };
-        Controls.Add(_btnFanMax);
-
-        y += 36;
         Controls.Add(CreateSeparator(16, y, 328));
         y += 10;
 
@@ -886,18 +772,6 @@ class FlyoutForm : Form
             bool sel = (_app.CurrentTimeoutSec == toSecs[i]);
             StyleTogglePill(_timeoutBtns[i], sel);
         }
-
-        // Thermal Profile Buttons
-        ThermalProfile[] thModes = { ThermalProfile.Quiet, ThermalProfile.Balanced, ThermalProfile.Performance };
-        for (int i = 0; i < thModes.Length; i++)
-        {
-            bool sel = (_app.CurrentThermal == thModes[i]);
-            StyleTogglePill(_thermalBtns[i], sel);
-        }
-
-        // Fan Buttons
-        StyleTogglePill(_btnFanAuto, !_app.CurrentMaxFan);
-        StyleTogglePill(_btnFanMax, _app.CurrentMaxFan);
     }
 
     void StyleTogglePill(Button b, bool active)
@@ -999,8 +873,6 @@ class TrayApp : ApplicationContext
     int currentTimeoutSec = 60;
     EffectMode currentEffect = EffectMode.Static;
     bool currentPowerOn = true;
-    ThermalProfile currentThermal = ThermalProfile.Balanced;
-    bool currentMaxFan = false;
     int currentExtDisplayBrightness = 100;
 
     public Color CurrentColor { get { return currentColor; } }
@@ -1008,8 +880,6 @@ class TrayApp : ApplicationContext
     public int CurrentTimeoutSec { get { return currentTimeoutSec; } }
     public EffectMode CurrentEffect { get { return currentEffect; } }
     public bool CurrentPowerOn { get { return currentPowerOn; } }
-    public ThermalProfile CurrentThermal { get { return currentThermal; } }
-    public bool CurrentMaxFan { get { return currentMaxFan; } }
     public int CurrentExtDisplayBrightness { get { return currentExtDisplayBrightness; } }
 
     volatile bool isExiting = false;
@@ -1035,8 +905,6 @@ class TrayApp : ApplicationContext
     ToolStripMenuItem effectRainbowItem;
     ToolStripMenuItem[] brightnessItems;
     ToolStripMenuItem[] timeoutItems;
-    ToolStripMenuItem[] thermalItems;
-    ToolStripMenuItem maxFanItem;
     ToolStripMenuItem powerItem;
 
     public static readonly int[] BrightnessLevels = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
@@ -1053,9 +921,6 @@ class TrayApp : ApplicationContext
         cfgPath = Path.Combine(dir, "settings.txt");
         legacyCfgPath = Path.Combine(Path.Combine(appData, "VictusKbd"), "settings.txt");
         LoadSettings();
-        Hp.SetThermalProfile(currentThermal);
-        Hp.SetMaxFan(currentMaxFan);
-        WindowsPower.ApplyScheme(currentThermal);
 
         flyout = new FlyoutForm(this);
 
@@ -1089,9 +954,6 @@ class TrayApp : ApplicationContext
             {
                 Hp.ResetConnection();
                 forceUpdate = true;
-                Hp.SetThermalProfile(currentThermal);
-                Hp.SetMaxFan(currentMaxFan);
-                WindowsPower.ApplyScheme(currentThermal);
             }
         };
         SystemEvents.SessionSwitch += delegate(object s, SessionSwitchEventArgs e)
@@ -1102,11 +964,6 @@ class TrayApp : ApplicationContext
                 forceUpdate = true;
             }
         };
-
-        // Initialize profiles
-        Hp.SetThermalProfile(currentThermal);
-        Hp.SetMaxFan(currentMaxFan);
-        WindowsPower.ApplyScheme(currentThermal);
 
         workerThread = new Thread(WorkerLoop);
         workerThread.IsBackground = true;
@@ -1236,26 +1093,6 @@ class TrayApp : ApplicationContext
         }
         menu.Items.Add(timeoutMenu);
 
-        // Performance Profile
-        ToolStripMenuItem thermalMenu = new ToolStripMenuItem("Performance Profile");
-        string[] thNames = { "Quiet (Eco)", "Balanced", "Performance (Gaming)" };
-        ThermalProfile[] thModes = { ThermalProfile.Quiet, ThermalProfile.Balanced, ThermalProfile.Performance };
-        thermalItems = new ToolStripMenuItem[thNames.Length];
-        for (int i = 0; i < thNames.Length; i++)
-        {
-            ThermalProfile tp = thModes[i];
-            ToolStripMenuItem thItem = new ToolStripMenuItem(thNames[i]);
-            thItem.Click += delegate { SetThermalProfile(tp); };
-            thermalItems[i] = thItem;
-            thermalMenu.DropDownItems.Add(thItem);
-        }
-        menu.Items.Add(thermalMenu);
-
-        // Max Fan
-        maxFanItem = new ToolStripMenuItem("Max Fan (100%)");
-        maxFanItem.Click += delegate { SetMaxFan(!currentMaxFan); };
-        menu.Items.Add(maxFanItem);
-
         menu.Items.Add(new ToolStripSeparator());
 
         powerItem = new ToolStripMenuItem("Light on");
@@ -1304,12 +1141,6 @@ class TrayApp : ApplicationContext
             timeoutItems[i].Checked = (currentTimeoutSec == TimeoutSecondsList[i]);
         }
 
-        for (int i = 0; i < thermalItems.Length; i++)
-        {
-            thermalItems[i].Checked = (currentThermal == (ThermalProfile)i);
-        }
-
-        maxFanItem.Checked = currentMaxFan;
         powerItem.Checked = currentPowerOn;
     }
 
@@ -1347,21 +1178,6 @@ class TrayApp : ApplicationContext
     {
         currentTimeoutSec = sec;
         forceUpdate = true;
-        SaveSettings();
-    }
-
-    public void SetThermalProfile(ThermalProfile profile)
-    {
-        currentThermal = profile;
-        Hp.SetThermalProfile(profile);
-        WindowsPower.ApplyScheme(profile);
-        SaveSettings();
-    }
-
-    public void SetMaxFan(bool enabled)
-    {
-        currentMaxFan = enabled;
-        Hp.SetMaxFan(enabled);
         SaveSettings();
     }
 
@@ -1549,16 +1365,6 @@ class TrayApp : ApplicationContext
                         bool pow;
                         if (bool.TryParse(val, out pow)) currentPowerOn = pow;
                     }
-                    else if (key == "thermal")
-                    {
-                        int th;
-                        if (int.TryParse(val, out th)) currentThermal = (ThermalProfile)th;
-                    }
-                    else if (key == "maxfan")
-                    {
-                        bool mf;
-                        if (bool.TryParse(val, out mf)) currentMaxFan = mf;
-                    }
                     else if (key == "extbright")
                     {
                         int eb;
@@ -1575,14 +1381,12 @@ class TrayApp : ApplicationContext
         try
         {
             string content = string.Format(
-                "color={0},{1},{2}\r\nbrightness={3}\r\ntimeout={4}\r\neffect={5}\r\npower={6}\r\nthermal={7}\r\nmaxfan={8}\r\nextbright={9}\r\n",
+                "color={0},{1},{2}\r\nbrightness={3}\r\ntimeout={4}\r\neffect={5}\r\npower={6}\r\nextbright={7}\r\n",
                 currentColor.R, currentColor.G, currentColor.B,
                 currentBrightness,
                 currentTimeoutSec,
                 (int)currentEffect,
                 currentPowerOn,
-                (int)currentThermal,
-                currentMaxFan,
                 currentExtDisplayBrightness
             );
             File.WriteAllText(cfgPath, content);

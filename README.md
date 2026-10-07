@@ -40,15 +40,10 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
   - **Rainbow (Color Cycle):** Smooth HSV spectrum transition across all hues (~16 FPS, <0.1% CPU).
 - ⏳ **Smart Inactivity Timeout:**  
   Turns off keyboard LEDs automatically when idle (*30s, 1m, 5m, 10m, or Disabled*) to save battery and reduce glare. Turns back on immediately upon key or mouse input.
-- ⚡ **Thermal & Performance Profiles:**  
-  - **Quiet (Eco):** Whisper-quiet fans and power saving.
-  - **Balanced:** Default daily operation.
-  - **Performance (Gaming):** Unlocked power limits and aggressive cooling.
-  - **Max Fan Toggle:** Force fans to 100% speed on demand.
-- 🛡️ **Safe for Windows:**  
-  Interacts strictly with the HP BIOS WMI interface (`hpqBIntM`) and native Windows power schemes. Does not tamper with or corrupt Windows registry power plans.
 - 🖥️ **External Display Brightness (HDMI / Type-C):**  
   Adjust external monitor brightness directly from the flyout. Supports hardware **DDC/CI** with an automatic click-through software dimming overlay fallback (works through USB-C hubs & docks).
+- 🛡️ **Safe & Native:**  
+  Interacts strictly with the HP BIOS WMI lighting interface (`hpqBIntM`). Zero tampering with system stability or Windows registry power plans.
 - 💾 **Persistent Settings:**  
   All your choices are saved automatically in `%APPDATA%\VictusControl\settings.txt` and restored upon startup, sleep resume, or session unlock.
 
