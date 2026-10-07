@@ -135,13 +135,13 @@ static class Hp
                 byte mode;
                 switch (profile)
                 {
-                    case ThermalProfile.Quiet: mode = 3; break;
+                    case ThermalProfile.Quiet: mode = 2; break;
                     case ThermalProfile.Performance: mode = 1; break;
                     default: mode = 0; break;
                 }
                 byte[] data = new byte[128];
                 data[0] = mode;
-                InvokeInternal(0x20008, 0x27, data);
+                InvokeInternal(0x20008, 0x1A, data); // 0x1A = HPWMI_SET_PERFORMANCE_MODE
             }
             catch { }
         }
@@ -155,7 +155,7 @@ static class Hp
             {
                 byte[] data = new byte[128];
                 data[0] = (byte)(enabled ? 1 : 0);
-                InvokeInternal(0x20008, 0x26, data);
+                InvokeInternal(0x20008, 0x27, data); // 0x27 = HPWMI_FAN_SPEED_MAX_SET_QUERY (0=Auto, 1=Max)
             }
             catch { }
         }
@@ -1053,6 +1053,9 @@ class TrayApp : ApplicationContext
         cfgPath = Path.Combine(dir, "settings.txt");
         legacyCfgPath = Path.Combine(Path.Combine(appData, "VictusKbd"), "settings.txt");
         LoadSettings();
+        Hp.SetThermalProfile(currentThermal);
+        Hp.SetMaxFan(currentMaxFan);
+        WindowsPower.ApplyScheme(currentThermal);
 
         flyout = new FlyoutForm(this);
 
