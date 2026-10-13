@@ -829,6 +829,7 @@ class TrayApp : ApplicationContext
     EffectMode currentEffect = EffectMode.Static;
     bool currentPowerOn = true;
     int currentExtDisplayBrightness = 100;
+    int omenEventCode = -1; // -1 = any hpqBEvnt toggles the flyout
 
     public Color CurrentColor { get { return currentColor; } }
     public int CurrentBrightness { get { return currentBrightness; } }
@@ -916,6 +917,31 @@ class TrayApp : ApplicationContext
         workerThread.Start();
     }
 
+    static int WmiEventCode(ManagementBaseObject ev)
+    {
+        try
+        {
+            object v = ev["EventData"];
+            if (v != null) return Convert.ToInt32(v);
+        }
+        catch { }
+        return int.MinValue;
+    }
+
+    void LogWmiEvent(ManagementBaseObject ev)
+    {
+        try
+        {
+            string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " ";
+            foreach (PropertyData p in ev.Properties)
+            {
+                line += p.Name + "=" + (p.Value == null ? "null" : p.Value.ToString()) + " ";
+            }
+            File.AppendAllText(Path.Combine(Path.GetDirectoryName(cfgPath), "events.log"), line + "\r\n");
+        }
+        catch { }
+    }
+
     void SetupWmiOmenWatcher()
     {
         try
@@ -924,8 +950,14 @@ class TrayApp : ApplicationContext
             scope.Connect();
             EventQuery q = new EventQuery("SELECT * FROM hpqBEvnt");
             omenWatcher = new ManagementEventWatcher(scope, q);
-            omenWatcher.EventArrived += delegate
+            omenWatcher.EventArrived += delegate(object sender, EventArrivedEventArgs ea)
             {
+                // Log every hpqBEvnt with all its fields, so the Omen key and other keys can be told apart
+                LogWmiEvent(ea.NewEvent);
+
+                // Optional filter: if omenevent=<code> is set in settings, only that code toggles the flyout
+                if (omenEventCode >= 0 && WmiEventCode(ea.NewEvent) != omenEventCode) return;
+
                 ui.BeginInvoke((MethodInvoker)delegate { ToggleFlyout(); });
             };
             omenWatcher.Start();
@@ -1310,6 +1342,11 @@ class TrayApp : ApplicationContext
                         int eb;
                         if (int.TryParse(val, out eb)) currentExtDisplayBrightness = eb;
                     }
+                    else if (key == "omenevent")
+                    {
+                        int oe;
+                        if (int.TryParse(val, out oe)) omenEventCode = oe;
+                    }
                 }
             }
         }
@@ -1329,6 +1366,7 @@ class TrayApp : ApplicationContext
                 currentPowerOn,
                 currentExtDisplayBrightness
             );
+            if (omenEventCode >= 0) content += "omenevent=" + omenEventCode + "\r\n";
             File.WriteAllText(cfgPath, content);
         }
         catch { }
