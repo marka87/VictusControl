@@ -162,6 +162,10 @@ static class DisplayHelper
         {
             EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, delegate(IntPtr hMon, IntPtr hdc, ref RECT rc, IntPtr data)
             {
+                // The primary monitor always sits at (0,0). On most Victus laptops that is the
+                // built-in panel, which must not be changed. Heuristic: see README.
+                if (rc.left == 0 && rc.top == 0) return true;
+
                 uint count = 0;
                 if (GetNumberOfPhysicalMonitorsFromHMONITOR(hMon, out count) && count > 0)
                 {
@@ -268,45 +272,6 @@ class DimmerOverlay : Form
     }
 }
 
-class HotkeyWindow : NativeWindow, IDisposable
-{
-    [DllImport("user32.dll")]
-    static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-    [DllImport("user32.dll")]
-    static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-    const int WM_HOTKEY = 0x0312;
-    const uint MOD_ALT = 0x0001;
-    const uint MOD_CONTROL = 0x0002;
-    const uint MOD_NOREPEAT = 0x4000;
-    const uint VK_V = 0x56;
-    const int HOTKEY_ID = 9119;
-
-    readonly Action _action;
-
-    public HotkeyWindow(Action action)
-    {
-        _action = action;
-        CreateHandle(new CreateParams());
-        RegisterHotKey(Handle, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_V);
-    }
-
-    protected override void WndProc(ref Message m)
-    {
-        if (m.Msg == WM_HOTKEY && (int)m.WParam == HOTKEY_ID)
-        {
-            if (_action != null) _action();
-        }
-        base.WndProc(ref m);
-    }
-
-    public void Dispose()
-    {
-        UnregisterHotKey(Handle, HOTKEY_ID);
-        DestroyHandle();
-    }
-}
-
 class DarkSlider : Control
 {
     int _value = 100;
@@ -317,7 +282,7 @@ class DarkSlider : Control
         get { return _value; }
         set
         {
-            int snapped = (int)Math.Round(Math.Max(10, Math.Min(100, value)) / 10.0) * 10;
+            int snapped = (int)(Math.Round(Math.Max(10, Math.Min(100, value)) / 10.0, MidpointRounding.AwayFromZero) * 10);
             if (_value != snapped)
             {
                 _value = snapped;
@@ -344,7 +309,7 @@ class DarkSlider : Control
         if (trackWidth <= 0) return;
         double pct = (double)(mouseX - pad) / trackWidth;
         pct = Math.Max(0.0, Math.Min(1.0, pct));
-        int val = (int)Math.Round((10.0 + pct * 90.0) / 10.0) * 10;
+        int val = (int)(Math.Round((10.0 + pct * 90.0) / 10.0, MidpointRounding.AwayFromZero) * 10);
         Value = val;
     }
 
@@ -432,7 +397,10 @@ class FlyoutForm : Form
     DarkSlider _extBrightSlider;
     Label _lblExtStatus;
 
-    static readonly int[] QuickBrightness = { 25, 50, 75, 100 };
+    static readonly int[] QuickBrightness = { 20, 50, 80, 100 };
+
+    static readonly Font FontToggleNormal = new Font("Segoe UI", 8.5f, FontStyle.Regular);
+    static readonly Font FontToggleBold = new Font("Segoe UI", 8.5f, FontStyle.Bold);
 
     protected override CreateParams CreateParams
     {
@@ -620,14 +588,14 @@ class FlyoutForm : Form
         // Section: TIMEOUT (IDLE)
         Controls.Add(CreateHeaderLabel("TIMEOUT (IDLE)", 16, y));
         y += 22;
-        int[] toSecs = { 0, 30, 60, 300, 600 };
-        string[] toLabels = { "Off", "30s", "1m", "5m", "10m" };
+        int[] toSecs = { 0, 30, 60, 120, 300, 600 };
+        string[] toLabels = { "Off", "30s", "1m", "2m", "5m", "10m" };
         _timeoutBtns = new Button[toSecs.Length];
-        int tw = 58;
+        int tw = 48;
         for (int i = 0; i < toSecs.Length; i++)
         {
             int sec = toSecs[i];
-            Button b = CreatePillButton(toLabels[i], 16 + i * (tw + 9), y, tw, 26);
+            Button b = CreatePillButton(toLabels[i], 16 + i * (tw + 6), y, tw, 26);
             b.Click += delegate
             {
                 _app.SetTimeout(sec);
@@ -766,7 +734,7 @@ class FlyoutForm : Form
         }
 
         // Timeout Buttons
-        int[] toSecs = { 0, 30, 60, 300, 600 };
+        int[] toSecs = { 0, 30, 60, 120, 300, 600 };
         for (int i = 0; i < toSecs.Length; i++)
         {
             bool sel = (_app.CurrentTimeoutSec == toSecs[i]);
@@ -780,13 +748,13 @@ class FlyoutForm : Form
         {
             b.BackColor = Color.FromArgb(0, 120, 215); // Windows 11 Accent Blue
             b.ForeColor = Color.White;
-            b.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            b.Font = FontToggleBold;
         }
         else
         {
             b.BackColor = Color.FromArgb(38, 38, 42);
             b.ForeColor = Color.FromArgb(210, 210, 215);
-            b.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
+            b.Font = FontToggleNormal;
         }
     }
 
@@ -849,21 +817,8 @@ class TrayApp : ApplicationContext
     [DllImport("user32.dll")]
     static extern bool DestroyIcon(IntPtr h);
 
-    [DllImport("user32.dll", SetLastError = true)]
-    static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
-    [DllImport("user32.dll", SetLastError = true)]
-    static extern bool UnhookWindowsHookEx(IntPtr hhk);
-    [DllImport("user32.dll")]
-    static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
-    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-    static extern IntPtr GetModuleHandle(string lpModuleName);
-
-    delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
-    const int WH_KEYBOARD_LL = 13;
-    const int WM_KEYDOWN = 0x0100;
-    const int WM_SYSKEYDOWN = 0x0104;
-
     readonly NotifyIcon tray = new NotifyIcon();
+    readonly object stateLock = new object();
     readonly Control ui = new Control();
     readonly string cfgPath;
     readonly string legacyCfgPath;
@@ -887,10 +842,7 @@ class TrayApp : ApplicationContext
     Thread workerThread;
 
     FlyoutForm flyout;
-    HotkeyWindow hotkeyWin;
     ManagementEventWatcher omenWatcher;
-    IntPtr hookId = IntPtr.Zero;
-    HookProc hookProc;
 
     public static readonly string[] Names = { "White", "Red", "Orange", "Yellow", "Green", "Cyan", "Blue", "Purple", "Pink" };
     public static readonly Color[] PresetColors = {
@@ -939,14 +891,8 @@ class TrayApp : ApplicationContext
             }
         };
 
-        // Hotkey Ctrl + Alt + V
-        try { hotkeyWin = new HotkeyWindow(delegate { ToggleFlyout(); }); } catch { }
-
-        // WMI Event Watcher for Omen Key (hpqBEvnt)
+        // Omen key is the only keyboard trigger: WMI event hpqBEvnt (one event per press)
         SetupWmiOmenWatcher();
-
-        // Low-Level Keyboard Hook for Omen Key / F24 / AppLaunch
-        SetupKeyboardHook();
 
         SystemEvents.PowerModeChanged += delegate(object s, PowerModeChangedEventArgs e)
         {
@@ -985,35 +931,6 @@ class TrayApp : ApplicationContext
             omenWatcher.Start();
         }
         catch { }
-    }
-
-    void SetupKeyboardHook()
-    {
-        try
-        {
-            hookProc = HookCallback;
-            using (System.Diagnostics.Process curProcess = System.Diagnostics.Process.GetCurrentProcess())
-            using (System.Diagnostics.ProcessModule curModule = curProcess.MainModule)
-            {
-                hookId = SetWindowsHookEx(WH_KEYBOARD_LL, hookProc, GetModuleHandle(curModule.ModuleName), 0);
-            }
-        }
-        catch { }
-    }
-
-    IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
-    {
-        if (nCode >= 0 && (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN))
-        {
-            int vkCode = Marshal.ReadInt32(lParam);
-            // 0x87 = VK_F24, 0xB4 = VK_LAUNCH_APP1, 0xB5 = VK_LAUNCH_APP2
-            if (vkCode == 0x87 || vkCode == 0xB4 || vkCode == 0xB5)
-            {
-                ui.BeginInvoke((MethodInvoker)delegate { ToggleFlyout(); });
-                return (IntPtr)1; // Consume event
-            }
-        }
-        return CallNextHookEx(hookId, nCode, wParam, lParam);
     }
 
     public void ToggleFlyout()
@@ -1106,8 +1023,7 @@ class TrayApp : ApplicationContext
         {
             isExiting = true;
             if (omenWatcher != null) { try { omenWatcher.Stop(); omenWatcher.Dispose(); } catch { } }
-            if (hookId != IntPtr.Zero) { try { UnhookWindowsHookEx(hookId); } catch { } }
-            if (hotkeyWin != null) { try { hotkeyWin.Dispose(); } catch { } }
+            if (flyout != null) { try { flyout.Dispose(); } catch { } }
             tray.Visible = false;
             tray.Dispose();
             Application.Exit();
@@ -1146,8 +1062,11 @@ class TrayApp : ApplicationContext
 
     public void SetColor(Color c)
     {
-        currentColor = c;
-        if (currentEffect == EffectMode.Rainbow) currentEffect = EffectMode.Static;
+        lock (stateLock)
+        {
+            currentColor = c;
+            if (currentEffect == EffectMode.Rainbow) currentEffect = EffectMode.Static;
+        }
         forceUpdate = true;
         UpdateTrayIcon();
         SaveSettings();
@@ -1155,14 +1074,14 @@ class TrayApp : ApplicationContext
 
     public void SetEffect(EffectMode mode)
     {
-        currentEffect = mode;
+        lock (stateLock) { currentEffect = mode; }
         forceUpdate = true;
         SaveSettings();
     }
 
     public void SetBrightness(int b)
     {
-        currentBrightness = b;
+        lock (stateLock) { currentBrightness = b; }
         forceUpdate = true;
         UpdateTrayIcon();
         SaveSettings();
@@ -1170,20 +1089,20 @@ class TrayApp : ApplicationContext
 
     public void SetExtDisplayBrightness(int b)
     {
-        currentExtDisplayBrightness = b;
+        lock (stateLock) { currentExtDisplayBrightness = b; }
         SaveSettings();
     }
 
     public void SetTimeout(int sec)
     {
-        currentTimeoutSec = sec;
+        lock (stateLock) { currentTimeoutSec = sec; }
         forceUpdate = true;
         SaveSettings();
     }
 
     public void TogglePower()
     {
-        currentPowerOn = !currentPowerOn;
+        lock (stateLock) { currentPowerOn = !currentPowerOn; }
         forceUpdate = true;
         UpdateTrayIcon();
         SaveSettings();
@@ -1251,9 +1170,23 @@ class TrayApp : ApplicationContext
         {
             try
             {
+                // Take a consistent snapshot of the settings for this frame
+                bool powerOn;
+                Color color;
+                int brightness, timeoutSec;
+                EffectMode effect;
+                lock (stateLock)
+                {
+                    powerOn = currentPowerOn;
+                    color = currentColor;
+                    brightness = currentBrightness;
+                    timeoutSec = currentTimeoutSec;
+                    effect = currentEffect;
+                }
+
                 uint idleMs = GetIdleMilliseconds();
-                bool isIdle = (currentTimeoutSec > 0) && (idleMs >= (uint)(currentTimeoutSec * 1000));
-                bool shouldBeOn = currentPowerOn && !isIdle;
+                bool isIdle = (timeoutSec > 0) && (idleMs >= (uint)(timeoutSec * 1000));
+                bool shouldBeOn = powerOn && !isIdle;
 
                 if (!shouldBeOn)
                 {
@@ -1275,9 +1208,9 @@ class TrayApp : ApplicationContext
                     forceUpdate = true;
                 }
 
-                if (currentEffect == EffectMode.Static)
+                if (effect == EffectMode.Static)
                 {
-                    Color target = ScaleColor(currentColor, currentBrightness);
+                    Color target = ScaleColor(color, brightness);
                     if (forceUpdate || target != lastAppliedColor)
                     {
                         forceUpdate = false;
@@ -1286,24 +1219,31 @@ class TrayApp : ApplicationContext
                     }
                     Thread.Sleep(200);
                 }
-                else if (currentEffect == EffectMode.Breathing)
+                else if (effect == EffectMode.Breathing)
                 {
                     double t = (Environment.TickCount % 3500) / 3500.0 * 2.0 * Math.PI;
                     double sine = 0.5 + 0.5 * Math.Sin(t);
                     double factor = 0.06 + 0.94 * (sine * sine);
-                    int effBright = (int)Math.Max(1, Math.Round(currentBrightness * factor));
-                    Color c = ScaleColor(currentColor, effBright);
-                    Hp.SetColor(c.R, c.G, c.B);
-                    lastAppliedColor = c;
+                    int effBright = (int)Math.Max(1, Math.Round(brightness * factor));
+                    Color c = ScaleColor(color, effBright);
+                    // Only talk to WMI when the color actually changed
+                    if (forceUpdate || c != lastAppliedColor)
+                    {
+                        Hp.SetColor(c.R, c.G, c.B);
+                        lastAppliedColor = c;
+                    }
                     forceUpdate = false;
                     Thread.Sleep(60);
                 }
-                else if (currentEffect == EffectMode.Rainbow)
+                else if (effect == EffectMode.Rainbow)
                 {
                     double hue = ((Environment.TickCount % 6000) / 6000.0) * 360.0;
-                    Color c = ColorFromHsv(hue, 1.0, currentBrightness / 100.0);
-                    Hp.SetColor(c.R, c.G, c.B);
-                    lastAppliedColor = c;
+                    Color c = ColorFromHsv(hue, 1.0, brightness / 100.0);
+                    if (forceUpdate || c != lastAppliedColor)
+                    {
+                        Hp.SetColor(c.R, c.G, c.B);
+                        lastAppliedColor = c;
+                    }
                     forceUpdate = false;
                     Thread.Sleep(60);
                 }
@@ -1406,7 +1346,9 @@ class TrayApp : ApplicationContext
                 using (Pen p = new Pen(powerOn ? Color.Gray : Color.FromArgb(180, 50, 50))) g.DrawEllipse(p, 1, 1, 14, 14);
             }
             IntPtr h = bmp.GetHicon();
-            Icon ic = (Icon)Icon.FromHandle(h).Clone();
+            Icon tmp = Icon.FromHandle(h);
+            Icon ic = (Icon)tmp.Clone();
+            tmp.Dispose();
             DestroyIcon(h);
             return ic;
         }

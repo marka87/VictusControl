@@ -1,12 +1,11 @@
 # VictusControl ⚡
 
 > **Lightweight, bloat-free control utility for HP Victus laptops.**  
-> Direct HP BIOS WMI communication (`root\wmi`, `hpqBIntM`). Zero background services, zero ads, zero telemetry.
+> Direct HP BIOS WMI communication (`root\wmi`, `hpqBIntM`). One small tray app (no Windows service), no ads, no telemetry.
 
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue?logo=windows)](https://github.com/marka87/VictusControl)
 [![Language](https://img.shields.io/badge/Language-C%23%205.0%20%2F%20.NET%204.0+-purple)](https://github.com/marka87/VictusControl)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Binary Size](https://img.shields.io/badge/Size-~20%20KB-brightgreen)](https://github.com/marka87/VictusControl)
 
 ---
 
@@ -18,9 +17,9 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
 
 | Feature | HP OMEN Gaming Hub | VictusControl |
 | :--- | :--- | :--- |
-| **Download / Install Size** | ~500 MB+ | **~20 KB** |
-| **RAM Usage** | 200 – 400 MB | **< 15 MB** |
-| **Background Services** | 4 – 6 services running 24/7 | **0 (Zero)** |
+| **Download / Install Size** | ~500 MB+ | **One small EXE** |
+| **RAM Usage** | 200 – 400 MB | **Small** (not measured yet) |
+| **Background Services** | 4 – 6 services running 24/7 | **None** (one tray app, no Windows service) |
 | **Dedicated Omen Key** | Opens heavy Omen Hub | **Opens instant Quick Flyout (Bubble)** |
 | **Telemetry & Ads** | Yes | **None** |
 | **Dependencies** | UWP / Store / HSA Services | **None (Built into Windows)** |
@@ -41,7 +40,7 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
 - ⏳ **Smart Inactivity Timeout:**  
   Turns off keyboard LEDs automatically when idle (*30s, 1m, 5m, 10m, or Disabled*) to save battery and reduce glare. Turns back on immediately upon key or mouse input.
 - 🖥️ **External Display Brightness (HDMI / Type-C):**  
-  Adjust external monitor brightness directly from the flyout. Supports hardware **DDC/CI** with an automatic click-through software dimming overlay fallback (works through USB-C hubs & docks).
+  Adjust external monitor brightness directly from the flyout. Supports hardware **DDC/CI** with an automatic click-through software dimming overlay fallback (works through USB-C hubs & docks). The primary display (usually the built-in panel, at position 0,0) is excluded from DDC/CI. If your external monitor is set as primary in Windows, DDC/CI will not reach it. Make the built-in panel the primary display in Windows display settings in that case.
 - 🛡️ **Safe & Native:**  
   Interacts strictly with the HP BIOS WMI lighting interface (`hpqBIntM`). Zero tampering with system stability or Windows registry power plans.
 - 💾 **Persistent Settings:**  
@@ -51,7 +50,7 @@ The official **HP OMEN Gaming Hub** consumes hundreds of megabytes of RAM, runs 
 
 ## 🖥️ The Quick-Control Flyout ("Bubble")
 
-Press your laptop's **Omen key**, press **`Ctrl` + `Alt` + `V`**, or **left-click the tray icon** to summon the modern Quick Flyout:
+Press your laptop's **Omen key** or **left-click the tray icon** to summon the modern Quick Flyout:
 
 <p align="center">
   <img src="screenshot.png" alt="VictusControl Quick Flyout" width="360" />
@@ -85,7 +84,7 @@ Run **`uninstall-autostart.bat`** (Right-click → *Run as Administrator*) and d
 1. **WMI BIOS Communication:** Communicates with the `root\wmi` namespace using class `hpqBIntM` and method `hpqBIOSInt128` with command signature `"SECU"`.
    - Command `0x20009`: Reads and writes RGB lighting byte buffers (bytes 25, 26, 27).
    - Command `0x20008`: Controls thermal policies and fan speed triggers.
-2. **Omen Hardware Key:** Listens to `hpqBEvnt` in WMI as well as low-level keyboard scan events (`F24` / `LaunchApp1`).
+2. **Omen Hardware Key:** Listens to the WMI event `hpqBEvnt`. One key press yields one event, so the flyout opens and closes exactly once per press.
 3. **Inactivity Detection:** Uses `GetLastInputInfo` in `user32.dll` to measure system-wide idle time without continuous polling overhead.
 
 ---
@@ -93,7 +92,7 @@ Run **`uninstall-autostart.bat`** (Right-click → *Run as Administrator*) and d
 ## 💻 Hardware Compatibility
 
 - **Tested on:** HP Victus 16 (`16-s0xxx` AMD series, `16-d/e/r` series with 1-Zone RGB keyboard).
-- **Compatible with:** HP Victus 15, HP Victus 16, and other HP laptops with 1-Zone RGB backlighting.
+- **Probably compatible with:** other HP Victus models and HP laptops with 1-Zone RGB backlighting. Not tested. Reports are welcome.
 
 ---
 
